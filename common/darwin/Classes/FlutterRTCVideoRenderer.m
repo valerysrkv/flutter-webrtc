@@ -26,6 +26,7 @@
 @synthesize registry = _registry;
 @synthesize eventSink = _eventSink;
 @synthesize videoTrack = _videoTrack;
+@synthesize delegate = _delegate;
 
 - (instancetype)initWithTextureRegistry:(id<FlutterTextureRegistry>)registry
                               messenger:(NSObject<FlutterBinaryMessenger>*)messenger {
