@@ -20,6 +20,7 @@
 #import "LocalTrack.h"
 #import "LocalAudioTrack.h"
 #import "LocalVideoTrack.h"
+#import "PixelBufferRecorder.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wprotocol"
@@ -90,6 +91,12 @@ void postEvent(FlutterEventSink _Nonnull sink, id _Nullable event) {
       sink(event);
     });
 }
+
+@interface FlutterWebRTCPlugin()
+
+@property (nonatomic,weak) PixelBufferRecorder *bufferRecorder;
+
+@end
 
 @implementation FlutterWebRTCPlugin {
 #pragma clang diagnostic pop
@@ -1498,7 +1505,28 @@ bypassVoiceProcessing:(BOOL)bypassVoiceProcessing {
                 message:[NSString stringWithFormat:@"Error: peerConnection not found!"]
                 details:nil]);
     }
-  } else {
+  } else if ([@"startRecordToFile" isEqualToString:call.method]) {
+      
+      dispatch_async(dispatch_get_main_queue(), ^{
+          
+          [self->_bufferRecorder startSession:self->_renders[@0]];
+      });
+      result(nil);
+  }  else if ([@"stopRecordToFile" isEqualToString:call.method]) {
+        
+      _renders[@0].delegate = NULL;
+      
+      dispatch_async(dispatch_get_main_queue(), ^{
+          
+          [self->_bufferRecorder stopRecording:^(NSString * _Nullable data) {
+              if (data != nil) {
+                  result(data);
+              }
+              
+          }];
+      });
+
+    } else {
     [self handleFrameCryptorMethodCall:call result:result];
   }
 }
