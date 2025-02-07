@@ -1508,7 +1508,6 @@ bypassVoiceProcessing:(BOOL)bypassVoiceProcessing {
   } else if ([@"startRecordToFile" isEqualToString:call.method]) {
       
       dispatch_async(dispatch_get_main_queue(), ^{
-          
           [self->_bufferRecorder startSession:self->_renders[@0]];
       });
       result(nil);
