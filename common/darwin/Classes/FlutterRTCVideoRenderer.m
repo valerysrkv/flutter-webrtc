@@ -28,6 +28,7 @@
 @synthesize videoTrack = _videoTrack;
 @synthesize delegate = _delegate;
 
+
 - (instancetype)initWithTextureRegistry:(id<FlutterTextureRegistry>)registry
                               messenger:(NSObject<FlutterBinaryMessenger>*)messenger {
   self = [super init];
@@ -193,6 +194,7 @@
 
 #pragma mark - RTCVideoRenderer methods
 - (void)renderFrame:(RTCVideoFrame*)frame {
+  
 
   os_unfair_lock_lock(&_lock);
   if(_videoTrack == nil) {
@@ -207,6 +209,10 @@
     _frameAvailable = true;
   }
   os_unfair_lock_unlock(&_lock);
+    
+    if (_delegate != nil) {
+        [_delegate handleBuffer: _pixelBufferRef];
+    }
 
   __weak FlutterRTCVideoRenderer* weakSelf = self;
   if (_renderSize.width != frame.width || _renderSize.height != frame.height) {

@@ -13,6 +13,6 @@
 
 @interface WritePixelBufferOperation : NSOperation
 
-- (_Nonnull instancetype)initWith:(AVAssetWriterInputPixelBufferAdaptor *_Nonnull)pixelAdaptor andInput:(AVAssetWriterInput *_Nullable)pixelInput timeStamp:(CMTime)time;
+- (_Nonnull instancetype)initWith:(AVAssetWriterInputPixelBufferAdaptor *_Nonnull)pixelAdaptor andInput:(CVPixelBufferRef _Nonnull )buffer timeStamp:(CMTime)time;
 
 @end

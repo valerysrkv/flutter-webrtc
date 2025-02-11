@@ -8,9 +8,8 @@
 #import <Foundation/Foundation.h>
 #import "WritePixelBufferOperation.h"
 
-@interface WritePixelBufferOperation() {
+@interface WritePixelBufferOperation () {
     AVAssetWriterInputPixelBufferAdaptor *pixelAdaptor;
-    AVAssetWriterInput *input;
     CMTime timeStamp;
     CVPixelBufferRef pixelBuffer;
 }
@@ -22,57 +21,36 @@
 
 
 
-bool isOperationReady;
-
-- (_Nonnull instancetype)initWith:(AVAssetWriterInputPixelBufferAdaptor *_Nonnull)pixelAdaptor andInput:(AVAssetWriterInput *_Nullable)pixelInput timeStamp:(CMTime)time {
+- (_Nonnull instancetype)initWith:(AVAssetWriterInputPixelBufferAdaptor *_Nonnull)pixelAdaptor andInput:(CVPixelBufferRef _Nonnull)buffer timeStamp:(CMTime)time {
     self = [super init];
 
     if (self) {
         self->pixelAdaptor = pixelAdaptor;
-        input = pixelInput;
-        isOperationReady = false;
-        timeStamp =time;
+        pixelBuffer = buffer;
+        timeStamp = time;
     }
-   
-    [input addObserver:self
-            forKeyPath:@"isReadyForMoreMediaData"
-               options:NSKeyValueObservingOptionNew
-               context:nil];
 
     return self;
 }
 
-
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
-{
-    if ([keyPath isEqual:@"isReadyForMoreMediaData"]) {
-        if (!isOperationReady) {
-            [self willChangeValueForKey:@"isReady"];
-            isOperationReady =  change[@"new"];
-            [self didChangeValueForKey:@"isReady"];
-        }
-   
-    }
-
-//    if (context == <#context#>) {
-//
-//    } else {
-//        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
-//    }
-}
-
 - (BOOL)isReady {
-    return isOperationReady;
+    NSLog(@"WritePixelBufferOperation: Is trying to run Asset Write with time stamp %lld withValue %d", timeStamp.value, pixelAdaptor.assetWriterInput.isReadyForMoreMediaData);
+    return pixelAdaptor.assetWriterInput.isReadyForMoreMediaData;
 }
 
 - (void)main {
-    
-    if (input.isReadyForMoreMediaData) {
-        [pixelAdaptor appendPixelBuffer:pixelBuffer withPresentationTime:timeStamp];
+    if (pixelAdaptor.assetWriterInput.isReadyForMoreMediaData) {
+        @try {
+            NSLog(@"WritePixelBufferOperation: pixelAdaptor will appendPixelBuffer:pixelBuffer %lld", timeStamp.value);
+            [pixelAdaptor appendPixelBuffer:pixelBuffer withPresentationTime:timeStamp];
+            NSLog(@"WritePixelBufferOperation: pixelAdaptor appended PixelBuffer:pixelBuffer %lld", timeStamp.value);
+        } @catch (NSException *exception) {
+            NSLog(@"WritePixelBufferOperation: !!! Is failed pixelBuffer %lld error: \n %@", timeStamp.value, exception);
+        } @finally {
+        }
     } else {
-        NSLog(@"[!!! buffer can not be append] %lld", timeStamp.value);
+        NSLog(@"WritePixelBufferOperation: !!! assetWriterInput.isReadyForMoreMediaData in Not ready %lld", timeStamp.value);
     }
-    
 }
 
 @end
