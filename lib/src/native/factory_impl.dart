@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_webrtc/src/extension/extended_media_recorder.dart';
 import 'package:webrtc_interface/webrtc_interface.dart';
 
 import '../desktop_capturer.dart';
@@ -13,10 +14,15 @@ import 'rtc_peerconnection_impl.dart';
 import 'rtc_video_renderer_impl.dart';
 import 'utils.dart';
 
-class RTCFactoryNative extends RTCFactory {
+abstract class RTCFactoryExtended extends RTCFactory {
+  @override
+  ExtendedMediaRecorder mediaRecorder();
+}
+
+class RTCFactoryNative extends RTCFactoryExtended {
   RTCFactoryNative._internal();
 
-  static final RTCFactory instance = RTCFactoryNative._internal();
+  static final RTCFactoryExtended instance = RTCFactoryNative._internal();
 
   @override
   Future<MediaStream> createLocalMediaStream(String label) async {
@@ -28,9 +34,7 @@ class RTCFactoryNative extends RTCFactory {
   }
 
   @override
-  Future<RTCPeerConnection> createPeerConnection(
-      Map<String, dynamic> configuration,
-      [Map<String, dynamic> constraints = const {}]) async {
+  Future<RTCPeerConnection> createPeerConnection(Map<String, dynamic> configuration, [Map<String, dynamic> constraints = const {}]) async {
     var defaultConstraints = <String, dynamic>{
       'mandatory': {},
       'optional': [
@@ -40,10 +44,7 @@ class RTCFactoryNative extends RTCFactory {
 
     final response = await WebRTC.invokeMethod(
       'createPeerConnection',
-      <String, dynamic>{
-        'configuration': configuration,
-        'constraints': constraints.isEmpty ? defaultConstraints : constraints
-      },
+      <String, dynamic>{'configuration': configuration, 'constraints': constraints.isEmpty ? defaultConstraints : constraints},
     );
 
     String peerConnectionId = response['peerConnectionId'];
@@ -51,7 +52,7 @@ class RTCFactoryNative extends RTCFactory {
   }
 
   @override
-  MediaRecorder mediaRecorder() {
+  ExtendedMediaRecorder mediaRecorder() {
     return MediaRecorderNative();
   }
 
@@ -64,8 +65,7 @@ class RTCFactoryNative extends RTCFactory {
   Navigator get navigator => NavigatorNative.instance;
 
   @override
-  FrameCryptorFactory get frameCryptorFactory =>
-      FrameCryptorFactoryImpl.instance;
+  FrameCryptorFactory get frameCryptorFactory => FrameCryptorFactoryImpl.instance;
 
   @override
   Future<RTCRtpCapabilities> getRtpReceiverCapabilities(String kind) async {
@@ -90,11 +90,8 @@ class RTCFactoryNative extends RTCFactory {
   }
 }
 
-Future<RTCPeerConnection> createPeerConnection(
-    Map<String, dynamic> configuration,
-    [Map<String, dynamic> constraints = const {}]) async {
-  return RTCFactoryNative.instance
-      .createPeerConnection(configuration, constraints);
+Future<RTCPeerConnection> createPeerConnection(Map<String, dynamic> configuration, [Map<String, dynamic> constraints = const {}]) async {
+  return RTCFactoryNative.instance.createPeerConnection(configuration, constraints);
 }
 
 Future<MediaStream> createLocalMediaStream(String label) async {
@@ -109,7 +106,7 @@ Future<RTCRtpCapabilities> getRtpSenderCapabilities(String kind) async {
   return RTCFactoryNative.instance.getRtpSenderCapabilities(kind);
 }
 
-MediaRecorder mediaRecorder() {
+ExtendedMediaRecorder mediaRecorder() {
   return RTCFactoryNative.instance.mediaRecorder();
 }
 

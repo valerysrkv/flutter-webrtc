@@ -1,14 +1,12 @@
-import 'package:webrtc_interface/webrtc_interface.dart' as rtc;
-
+import 'package:flutter_webrtc/src/extension/extended_media_recorder.dart';
 import '../flutter_webrtc.dart';
 
-class MediaRecorder extends rtc.MediaRecorder {
+class MediaRecorder extends ExtendedMediaRecorder {
   MediaRecorder() : _delegate = mediaRecorder();
-  final rtc.MediaRecorder _delegate;
+  final ExtendedMediaRecorder _delegate;
 
   @override
-  Future<void> start(String path,
-          {MediaStreamTrack? videoTrack, RecorderAudioChannel? audioChannel}) =>
+  Future<void> start(String path, {MediaStreamTrack? videoTrack, RecorderAudioChannel? audioChannel}) =>
       _delegate.start(path, videoTrack: videoTrack, audioChannel: audioChannel);
 
   @override
@@ -27,4 +25,7 @@ class MediaRecorder extends rtc.MediaRecorder {
         mimeType: mimeType ?? 'video/webm',
         timeSlice: timeSlice,
       );
+
+  @override
+  Future<void> screenShot({required String path, required String fileName}) => _delegate.screenShot(path: path, fileName: fileName);
 }

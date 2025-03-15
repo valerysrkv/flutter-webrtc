@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter_webrtc/src/extension/extended_media_recorder.dart';
 import 'package:flutter_webrtc/src/native/ios/stream_configuration.dart';
 import 'package:webrtc_interface/webrtc_interface.dart';
 
 import 'media_stream_track_impl.dart';
 import 'utils.dart';
 
-class MediaRecorderNative extends MediaRecorder {
+class MediaRecorderNative extends ExtendedMediaRecorder {
   static final _random = Random();
   final _recorderId = _random.nextInt(0x7FFFFFFF);
 
@@ -39,4 +40,13 @@ class MediaRecorderNative extends MediaRecorder {
 
   @override
   Future<dynamic> stop() async => await WebRTC.invokeMethod('stopRecordToFile', {'recorderId': _recorderId});
+
+  @override
+  Future<void> screenShot({required String path, required String fileName}) async {
+    await WebRTC.invokeMethod('screenShot', {
+      'path': path,
+      'fileName': fileName,
+      'recorderId': _recorderId,
+    });
+  }
 }
