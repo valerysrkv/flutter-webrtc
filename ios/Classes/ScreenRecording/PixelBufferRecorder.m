@@ -41,122 +41,73 @@ dispatch_queue_t serialQueue;
     lastSampleTime = CMTimeAdd(lastSampleTime, frameRate);
 }
 
--(void)screenShot:(FlutterRTCVideoRenderer *)render andArg:(NSDictionary *)args  {
-    serialQueue = dispatch_queue_create("com.example.mySerialQueue", DISPATCH_QUEUE_SERIAL);
-    
-    // Get the Documents directory path
-    NSString *directoryPath = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/live_view"];
-    NSString *filePath = [directoryPath stringByAppendingPathComponent:@"output.jpg"];
-    
-    NSDictionary *pixelBufferAttributes = @{
-            (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey: @{},
-            (__bridge NSString *)kCVPixelBufferMetalCompatibilityKey: @NO,
-            (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @((int)CVPixelBufferGetPixelFormatType(render.copyPixelBuffer)),
-            (__bridge NSString *)kCVPixelBufferWidthKey:  @((int)640),
-            (__bridge NSString *)kCVPixelBufferHeightKey: @((int)480),
-    };
+- (UIImage *)imageFromPixelBuffer:(CVPixelBufferRef)pixelBuffer {
+    CIImage *ciImage = [CIImage imageWithCVPixelBuffer:pixelBuffer];
 
-    NSDictionary *videoSettings = @{
-//            AVVideoCodecKey: AVVideoCodecTypeH264,
-            AVVideoWidthKey:  [NSNumber numberWithInt:((int)640)],
-            AVVideoHeightKey: [NSNumber numberWithInt:((int)480)]
-    };
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    
-    if ([fileManager fileExistsAtPath:filePath]) {
-        NSLog(@"PixelBufferRecorder: WARN:::The file: \(self.videoOutputFullFileName!) exists, will delete the existing file");
+    CIContext *temporaryContext = [CIContext contextWithOptions:nil];
 
-        @try {
-            [fileManager removeItemAtPath:filePath error:NULL];
-        } @catch (NSException *e) {
-            NSLog(@"PixelBufferRecorder: Exception: %@ line:%d", e, __LINE__);
-        }
+    CGImageRef videoImage = [temporaryContext createCGImage:ciImage
+                                                   fromRect:CGRectMake(0, 0, CVPixelBufferGetWidth(pixelBuffer), CVPixelBufferGetHeight(pixelBuffer))];
+
+    UIImage *finalImage = [UIImage imageWithCGImage:videoImage scale:[UIScreen mainScreen].scale orientation:UIImageOrientationUp];
+
+    CGImageRelease(videoImage);
+
+    return finalImage;
+}
+
+- (void)saveUIImageAsPNG:(UIImage *)image path:(NSString *)path fileName:(NSString *)fileName {
+    NSString *imagePath;
+
+    if (path) {
+        imagePath = path;
+    } else {
+        imagePath = [self documentsPathForFileName:fileName];
     }
-    
-    videoWriterInput = [[AVAssetWriterInput alloc] initWithMediaType:AVMediaTypeVideo outputSettings:videoSettings];
 
-    adaptor =  [AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:videoWriterInput sourcePixelBufferAttributes:pixelBufferAttributes];
-    
-    NSError *error = NULL;
-    
-    NSURL *fileURl = [NSURL fileURLWithPath:filePath];
-
-    videoWriter = [[AVAssetWriter alloc] initWithURL: fileURl fileType:AVFileTypeJPEG error:&error];
+    NSData *imageData = UIImagePNGRepresentation(image);
 
 
-    NSLog(@"PixelBufferRecorder: videoWriter error %@", error.description);
-    [videoWriter addInput:videoWriterInput];
+    BOOL success = [imageData writeToFile:imagePath atomically:YES];
 
-    if (videoWriter.status != AVAssetWriterStatusWriting) {
-        [videoWriter startWriting];
-        [videoWriter startSessionAtSourceTime:kCMTimeZero];
+    if (success) {
+        NSLog(@"PNG saved at %@", imagePath);
+        [self saveImageUsingPHPhotoLibrary:imagePath];
+    } else {
+        NSLog(@"Failed to save PNG");
     }
-    
-    [videoWriterInput requestMediaDataWhenReadyOnQueue:serialQueue usingBlock:^{
-        [adaptor appendPixelBuffer:render.copyPixelBuffer withPresentationTime:kCMTimeZero];
-        [videoWriter endSessionAtSourceTime:kCMTimeZero];
-        [videoWriter finishWritingWithCompletionHandler:^{
-            NSFileManager *fileManeger = [NSFileManager defaultManager];
+}
 
-            if ([fileManeger fileExistsAtPath:filePath]) {
-                NSString *bundleId = [[NSBundle mainBundle].bundleIdentifier lowercaseString];
+- (void)saveImageToGallery:(UIImage *)image {
+    if (image) {
+        UIImageWriteToSavedPhotosAlbum(image, self, @selector(image:didFinishSavingWithError:contextInfo:), NULL);
+    } else {
+        NSLog(@"Image is nil, cannot save to gallery");
+    }
+}
 
-                NSURL *shareUrl = [fileManeger containerURLForSecurityApplicationGroupIdentifier:bundleId ];
+- (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo {
+    if (error) {
+        NSLog(@"Error saving image to gallery: %@", error.localizedDescription);
+    } else {
+        NSLog(@"Image saved successfully to gallery!");
+    }
+}
 
-                if (shareUrl == NULL) {
-                    shareUrl = [fileManeger containerURLForSecurityApplicationGroupIdentifier:@"com.sc.command"];
-                }
+- (NSString *)documentsPathForFileName:(NSString *)fileName {
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documentsDirectory = [paths firstObject];
 
-                if (shareUrl == NULL) {
-                    shareUrl = [fileManeger containerURLForSecurityApplicationGroupIdentifier:@"org.cocoapods.flutter-webrtc"];
-                }
 
-                NSLog(@"PixelBufferRecorder: videoWriter createdOperationForLibrary %@", filePath);
+    return [documentsDirectory stringByAppendingPathComponent:fileName];
+}
 
-                [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
-                    [PHAssetChangeRequest creationRequestForAssetFromVideoAtFileURL:[NSURL fileURLWithPath:shareUrl == nil ?
-                                                                                                 filePath : shareUrl.path]];
-                }
-                                                  completionHandler:^(BOOL success, NSError *error) {
-                    if (success) {
-                        NSLog(@"PixelBufferRecorder: success iOS 9");
-                    } else {
-                        NSLog(@"PixelBufferRecorder: videoWriter failed to save %@", error);
-    //                    completionHandler(filePath);
-                    }
-                }];
-            }
-        }];
-    }];
+- (void)screenShot:(FlutterRTCVideoRenderer *)render andArg:(NSDictionary *)args {
+    UIImage *image = [self imageFromPixelBuffer:render.copyPixelBuffer];
 
-    
-
-     
-//     // Convert CVPixelBufferRef to CIImage
-//     CIImage *ciImage = [CIImage imageWithCVPixelBuffer:render.copyPixelBuffer];
-//
-//     // Convert CIImage to UIImage
-//     CIContext *context = [CIContext contextWithOptions:nil];
-//     CGImageRef cgImage = [context createCGImage:ciImage fromRect:ciImage.extent];
-//
-//     UIImage *image = [UIImage imageWithCGImage:cgImage];
-//
-//     // Release CGImageRef to avoid memory leak
-//     CGImageRelease(cgImage);
-//
-
-     
-     // Convert UIImage to PNG data
-//     NSData *imageData = UIImageJPEGRepresentation(image, 1);
-//
-//     // Save image to file
-//     BOOL success = [imageData writeToFile:filePath atomically:YES];
-//
-//     if (success) {
-//         NSLog(@"✅ Image saved successfully at %@", filePath);
-//     } else {
-//         NSLog(@"❌ Failed to save image");
-//     }
+    if (image != nil) {
+        [self saveUIImageAsPNG:image path:args[@"path"] fileName:args[@"fileName"]];
+    }
 }
 
 - (void)startSession:(FlutterRTCVideoRenderer *)render andArg:(NSDictionary *)args  {
@@ -170,7 +121,6 @@ dispatch_queue_t serialQueue;
 
 
     NSFileManager *fileManager = [NSFileManager defaultManager];
-    
 
     if (videoOutputFullFileName == NULL) {
         NSArray *paths = [fileManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
@@ -190,7 +140,7 @@ dispatch_queue_t serialQueue;
             NSLog(@"PixelBufferRecorder: Exception: %@ line:%d", e, __LINE__);
         }
     }
-    
+
     // Check if the directory already exists
     if (![fileManager fileExistsAtPath:videoOutputFullFileName]) {
         NSError *error = nil;
@@ -211,13 +161,12 @@ dispatch_queue_t serialQueue;
         NSLog(@"ℹ️ Folder already exists: %@", videoOutputFullFileName);
     }
 
-
     NSDictionary *pixelBufferAttributes = @{
             (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey: @{},
             (__bridge NSString *)kCVPixelBufferMetalCompatibilityKey: @NO,
             (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @((int)CVPixelBufferGetPixelFormatType(render.copyPixelBuffer)),
-            (__bridge NSString *)kCVPixelBufferWidthKey:  @((int)640),
-            (__bridge NSString *)kCVPixelBufferHeightKey: @((int)480),
+            (__bridge NSString *)kCVPixelBufferWidthKey:  @((int)render.frameSize.width),
+            (__bridge NSString *)kCVPixelBufferHeightKey: @((int)render.frameSize.height),
     };
 
     NSDictionary *videoSettings = @{
@@ -235,10 +184,10 @@ dispatch_queue_t serialQueue;
     adaptor =  [AVAssetWriterInputPixelBufferAdaptor assetWriterInputPixelBufferAdaptorWithAssetWriterInput:videoWriterInput sourcePixelBufferAttributes:pixelBufferAttributes];
 
     NSError *error = NULL;
-    
+
     NSURL *fileURl = [NSURL fileURLWithPath:videoOutputFullFileName];
 
-    videoWriter = [[AVAssetWriter alloc] initWithURL: fileURl fileType:AVFileTypeMPEG4 error:&error];
+    videoWriter = [[AVAssetWriter alloc] initWithURL:fileURl fileType:AVFileTypeMPEG4 error:&error];
 
 
     NSLog(@"PixelBufferRecorder: videoWriter error %@", error.description);
@@ -271,32 +220,51 @@ dispatch_queue_t serialQueue;
         NSFileManager *fileManeger = [NSFileManager defaultManager];
 
         if ([fileManeger fileExistsAtPath:videoOutputFullFileName]) {
-            NSString *bundleId = [[NSBundle mainBundle].bundleIdentifier lowercaseString];
-
-            NSURL *shareUrl = [fileManeger containerURLForSecurityApplicationGroupIdentifier:bundleId ];
-
-            if (shareUrl == NULL) {
-                shareUrl = [fileManeger containerURLForSecurityApplicationGroupIdentifier:@"com.sc.command"];
-            }
-
-            if (shareUrl == NULL) {
-                shareUrl = [fileManeger containerURLForSecurityApplicationGroupIdentifier:@"org.cocoapods.flutter-webrtc"];
-            }
+          
 
             NSLog(@"PixelBufferRecorder: videoWriter createdOperationForLibrary %@", videoOutputFullFileName);
 
-            [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
-                [PHAssetChangeRequest creationRequestForAssetFromVideoAtFileURL:[NSURL fileURLWithPath:shareUrl == nil ?
-                                                                                 videoOutputFullFileName : shareUrl.path]];
-            }
-                                              completionHandler:^(BOOL success, NSError *error) {
-                if (success) {
-                    NSLog(@"PixelBufferRecorder: success iOS 9");
-                } else {
-                    NSLog(@"PixelBufferRecorder: videoWriter failed to save %@", error);
-                    completionHandler(videoOutputFullFileName);
-                }
-            }];
+            [self saveVideoUsingPHPhotoLibrary:videoOutputFullFileName];
+        }
+    }];
+}
+
+- (void)saveVideoUsingPHPhotoLibrary:(NSString *)filePath {
+    NSURL *videoURL = [NSURL fileURLWithPath:filePath];
+
+    if (![[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+        NSLog(@"Video not found at path: %@", filePath);
+        return;
+    }
+
+    [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+        [PHAssetChangeRequest creationRequestForAssetFromVideoAtFileURL:videoURL];
+    }
+                                      completionHandler:^(BOOL success, NSError *_Nullable error) {
+        if (success) {
+            NSLog(@"Video saved to Photos!");
+        } else {
+            NSLog(@"Failed to save video: %@", error.localizedDescription);
+        }
+    }];
+}
+
+- (void)saveImageUsingPHPhotoLibrary:(NSString *)filePath {
+    NSURL *imageURL = [NSURL fileURLWithPath:filePath];
+
+    if (![[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+        NSLog(@"Video not found at path: %@", filePath);
+        return;
+    }
+
+    [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+        [PHAssetChangeRequest creationRequestForAssetFromImageAtFileURL:imageURL];
+    }
+                                      completionHandler:^(BOOL success, NSError *_Nullable error) {
+        if (success) {
+            NSLog(@"Image saved to Photos!");
+        } else {
+            NSLog(@"Failed to save image: %@", error.localizedDescription);
         }
     }];
 }

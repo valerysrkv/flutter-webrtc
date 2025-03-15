@@ -45,11 +45,11 @@
             [pixelAdaptor appendPixelBuffer:pixelBuffer withPresentationTime:timeStamp];
             NSLog(@"WritePixelBufferOperation: pixelAdaptor appended PixelBuffer:pixelBuffer %lld", timeStamp.value);
         } @catch (NSException *exception) {
-            NSLog(@"WritePixelBufferOperation: !!! Is failed pixelBuffer %lld error: \n %@", timeStamp.value, exception);
+            NSLog(@"WritePixelBufferOperation: Is failed pixelBuffer %lld error: \n %@", timeStamp.value, exception);
         } @finally {
         }
     } else {
-        NSLog(@"WritePixelBufferOperation: !!! assetWriterInput.isReadyForMoreMediaData in Not ready %lld", timeStamp.value);
+        NSLog(@"WritePixelBufferOperation: assetWriterInput.isReadyForMoreMediaData in Not ready %lld", timeStamp.value);
     }
 }
 

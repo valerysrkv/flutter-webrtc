@@ -27,6 +27,8 @@
 @synthesize eventSink = _eventSink;
 @synthesize videoTrack = _videoTrack;
 @synthesize delegate = _delegate;
+@synthesize frameSize = _frameSize;
+
 
 
 - (instancetype)initWithTextureRegistry:(id<FlutterTextureRegistry>)registry
@@ -211,9 +213,13 @@
   os_unfair_lock_unlock(&_lock);
     
     if (_delegate != nil) {
+ 
+       
         [_delegate handleBuffer: _pixelBufferRef];
     }
 
+    NSLog(@"FlutterRTCVideoRenderer: next frame %@ with delegate: %@", frame, _delegate);
+    
   __weak FlutterRTCVideoRenderer* weakSelf = self;
   if (_renderSize.width != frame.width || _renderSize.height != frame.height) {
     dispatch_async(dispatch_get_main_queue(), ^{

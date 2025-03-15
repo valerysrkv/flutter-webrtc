@@ -1660,22 +1660,35 @@ static FlutterWebRTCPlugin *sharedSingleton;
                           message:[NSString stringWithFormat:@"Error: peerConnection not found!"]
                           details:nil]);
         }
+    } else if ([@"screenShot" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __weak FlutterWebRTCPlugin *weakSelf = self;
+        
+            [weakSelf.bufferRecorder screenShot:weakSelf.renders[weakSelf.renders.allKeys[0]] andArg:call.arguments];
+        });
+        result(nil);
     } else if ([@"startRecordToFile" isEqualToString:call.method]) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            __weak FlutterWebRTCPlugin * weakSelf = self;
-            [weakSelf.bufferRecorder screenShot:weakSelf.renders[weakSelf.renders.allKeys.firstObject] andArg: call.arguments];
+            __weak FlutterWebRTCPlugin *weakSelf = self;
+            [weakSelf.bufferRecorder startSession:[weakSelf findRendererByTrackId: call.arguments[@"videoTrackId"]] andArg:call.arguments];
         });
         result(nil);
     } else if ([@"stopRecordToFile" isEqualToString:call.method]) {
-        _renders[_renders.allKeys.firstObject].delegate = NULL;
-        __weak FlutterWebRTCPlugin * weakSelf = self;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [weakSelf.bufferRecorder stopRecording:^(NSString *_Nullable data) {
-                if (data != nil) {
-                    result(data);
-                }
-            }];
-        });
+        [self removeRecordingDelegate];
+        __weak FlutterWebRTCPlugin *weakSelf = self;
+        @try {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [weakSelf.bufferRecorder stopRecording:^(NSString *_Nullable data) {
+                    if (data != nil) {
+                        result(data);
+                    }
+                }];
+            });
+            
+        } @catch (NSException *e) {
+            NSLog(@"PixelBufferRecorder: Exception: %@ line:%d", e, __LINE__);
+        }
+      
     } else {
         [self handleFrameCryptorMethodCall:call result:result];
     }
@@ -2575,6 +2588,14 @@ static FlutterWebRTCPlugin *sharedSingleton;
     }
 
     return nil;
+}
+
+- (void)removeRecordingDelegate {
+    for (FlutterRTCVideoRenderer *renderer in self.renders.allValues) {
+        renderer.delegate = nil;
+    }
+
+  
 }
 
 @end

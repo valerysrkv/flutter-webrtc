@@ -17,6 +17,7 @@
 @property(nonatomic, weak) id<FlutterTextureRegistry> registry;
 @property(nonatomic, strong) FlutterEventSink eventSink;
 @property(nonatomic, weak) id<RecordingDelegate> delegate;
+@property(nonatomic) CGSize frameSize;
 
 - (instancetype)initWithTextureRegistry:(id<FlutterTextureRegistry>)registry
                               messenger:(NSObject<FlutterBinaryMessenger>*)messenger;
